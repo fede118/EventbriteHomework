@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">GuessFour</string>
+    <string name="guess_button">Guess</string>
+    <string name="lock_number_btton">Lock Number</string>
+    <string name="restart_button">Restart!</string>
+    <string name="game_mode">Game Mode</string>
+    <string name="game_mode_guessing_textview">Try to guess the number!</string>
+    <string name="game_mode_thinking_textview">Think of a Number and I\'ll guess!</string>
+    <string name="action_settings">Settings</string>
+</resources>
