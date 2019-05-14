@@ -70,48 +70,33 @@ public class UserGuessingFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 Button btn = (Button) v;
-                int[] success = checkSuccess();
 
-//                if (gameModeGuessing) {
-                    if (!gameFinished) {
+                if (!gameFinished) {
+                    userGuessingResultLinearLayout.removeAllViews();
+
+                    TextView exactMatchTextView = new TextView(context);
+                    TextView notExactMatchTextView = new TextView(context);
+
+                    int exactMatch = checkSuccess()[0];
+                    int notExactMatch = checkSuccess()[1];
+
+                    notExactMatchTextView.setText(String.format(Locale.getDefault(), "Right number wrong position: %d", notExactMatch));
+                    exactMatchTextView.setText(String.format(Locale.getDefault(), "Exact Matchs: %d", exactMatch));
+                    userGuessingResultLinearLayout.addView(notExactMatchTextView);
+                    userGuessingResultLinearLayout.addView(exactMatchTextView);
+
+                    if (exactMatch == amountOfNumbersInPlay) {
+                        Toast.makeText(context, "You WON!!", Toast.LENGTH_SHORT).show();
+
                         userGuessingResultLinearLayout.removeAllViews();
 
-                        TextView exactMatchTextView = new TextView(context);
-                        TextView notExactMatchTextView = new TextView(context);
-
-                        int exactMatch = checkSuccess()[0];
-                        int notExactMatch = checkSuccess()[1];
-
-                        notExactMatchTextView.setText(String.format(Locale.getDefault(), "Right number wrong position: %d", notExactMatch));
-                        exactMatchTextView.setText(String.format(Locale.getDefault(), "Exact Matchs: %d", exactMatch));
-                        userGuessingResultLinearLayout.addView(notExactMatchTextView);
-                        userGuessingResultLinearLayout.addView(exactMatchTextView);
-
-                        if (exactMatch == amountOfNumbersInPlay) {
-                            Toast.makeText(context, "You WON!!", Toast.LENGTH_SHORT).show();
-
-                            userGuessingResultLinearLayout.removeAllViews();
-
-                            btn.setText(R.string.restart_button);
-                            gameFinished = true;
-                        }
-                    } else {
-//                        game finished need to restart
-                        onBtnClickListerner.UserGuessingCallback(true);
-//                        mCreateNumberPickers = new CreateNumberPickers(this, AMOUNT_OF_NUMBERS_IN_PLAY, numberPicksLinearLayout);
-//                        btn.setText(R.string.guess_button);
-//                        gameFinished = false;
+                        btn.setText(R.string.restart_button);
+                        gameFinished = true;
                     }
-//                } else {
-//                    mCreateNumberPickers.lockNumberPickers();
-//
-//
-//                    Log.d(TAG, "initializing NUMBER GUESSER");
-//                    NumberGuesser numberGuesser = new NumberGuesser(AMOUNT_OF_NUMBERS_IN_PLAY);
-//                    numberGuesser.guess(null, null);
-//                }
-
-
+                } else {
+//                        game finished need to restart
+                    onBtnClickListerner.UserGuessingCallback(true);
+                }
                 }
             });
 
@@ -170,11 +155,4 @@ public class UserGuessingFragment extends Fragment {
         return result;
     }
 
-    void lockNumberPickers () {
-        Log.d(TAG, "locking number pickers");
-        for (int i = 0; i < numPicksLinearLayout.getChildCount(); i++) {
-            NumberPicker numberPicker = (NumberPicker) numPicksLinearLayout.getChildAt(i);
-            numberPicker.setEnabled(false);
-        }
-    }
 }

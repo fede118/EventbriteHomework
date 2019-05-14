@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">GuessFour</string>
+    <!--User Guessing Fragment-->
     <string name="guess_button">Guess</string>
     <string name="lock_number_btton">Lock Number</string>
     <string name="restart_button">Restart!</string>
@@ -7,4 +8,13 @@
     <string name="game_mode_guessing_textview">Try to guess the number!</string>
     <string name="game_mode_thinking_textview">Think of a Number and I\'ll guess!</string>
     <string name="action_settings">Settings</string>
+
+    <!--Number Guesser Fragment-->
+    <string name="start_button">Start!</string>
+    <string name="end_button">That\'s the Number!</string>
+    <string name="number_picker_info_textview">Cuantos digitos tiene tu numero?</string>
+    <string name="exact_match_textview">exact matches:</string>
+    <string name="wrong_position_textview">wrong position:</string>
+    <string name="correct_number_button">Ese es el numero correcto!</string>
+    <string name="feedback_button">casi!</string>
 </resources>

@@ -1,11 +1,10 @@
 package com.example.guessfour;
 
-import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity implements UserGuessingFragment.OnBtnClickListerner {
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -21,7 +20,7 @@ public class MainActivity extends AppCompatActivity implements UserGuessingFragm
         setContentView(R.layout.activity_main);
 
         initUserGuessFragment();
-//        changeMode();
+        changeMode();
     }
 
     @Override
@@ -45,31 +44,33 @@ public class MainActivity extends AppCompatActivity implements UserGuessingFragm
                 } else {
                     gameModeGuessing = true;
                 }
-//                changeMode();
+                changeMode();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
-//    private void changeMode () {
-//        if (gameModeGuessing) {
-//            gameModeTextView.setText(R.string.game_mode_guessing_textview);
-//
-//            guessOrSetNumberBtn.setText(R.string.guess_button);
-//        } else {
-//            gameModeTextView.setText(R.string.game_mode_thinking_textview);
-//
-//            guessOrSetNumberBtn.setText(R.string.lock_number_btton);
-//        }
-//    }
-private void initUserGuessFragment() {
-    UserGuessingFragment userGuessingFragment = new UserGuessingFragment();
-    Bundle bundle = new Bundle();
-    bundle.putInt("amount",AMOUNT_OF_NUMBERS_IN_PLAY);
-    userGuessingFragment.setArguments(bundle);
+    private void changeMode () {
+        TextView gameModeTextView = findViewById(R.id.gameModeTextView);
+        if (gameModeGuessing) {
+            gameModeTextView.setText(R.string.game_mode_thinking_textview);
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.frameLayoutMainAct, new NumberGuesserFragment()).commit();
 
-    FragmentManager fragmentManager = getSupportFragmentManager();
-    fragmentManager.beginTransaction().replace(R.id.frameLayoutMainAct, userGuessingFragment).commit();
-}
+        } else {
+            gameModeTextView.setText(R.string.game_mode_guessing_textview);
+            initUserGuessFragment();
+        }
+    }
+
+    private void initUserGuessFragment() {
+        UserGuessingFragment userGuessingFragment = new UserGuessingFragment();
+        Bundle bundle = new Bundle();
+        bundle.putInt("amount",AMOUNT_OF_NUMBERS_IN_PLAY);
+        userGuessingFragment.setArguments(bundle);
+
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.frameLayoutMainAct, userGuessingFragment).commit();
+    }
 }
