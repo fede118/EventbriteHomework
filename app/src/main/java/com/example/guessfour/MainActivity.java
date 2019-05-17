@@ -6,18 +6,22 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
 
-public class MainActivity extends AppCompatActivity implements UserGuessingFragment.OnBtnClickListerner {
+public class MainActivity extends AppCompatActivity implements UserGuessingFragment.OnBtnClickListerner, NumberGuesserFragment.OnGameFinishedListener {
     private static final String TAG = MainActivity.class.getSimpleName();
 
 //    cantidad de numeros en juego (esto lo puedo hacer que lo cambie el usuario despues)
     private static final int AMOUNT_OF_NUMBERS_IN_PLAY = 4;
 
-    private boolean gameModeGuessing = true;
+    private TextView gameModeTextView;
+
+    private boolean gameModeUserGuessing = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        gameModeTextView = findViewById(R.id.gameModeTextView);
 
         initUserGuessFragment();
         changeMode();
@@ -26,6 +30,13 @@ public class MainActivity extends AppCompatActivity implements UserGuessingFragm
     @Override
     public void UserGuessingCallback(boolean gameFinished) {
         initUserGuessFragment();
+    }
+
+    @Override
+    public void numberGuesserGameEnded() {
+        gameModeTextView.setText(R.string.game_mode_thinking_textview_try_again);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.frameLayoutMainAct, new NumberGuesserFragment()).commit();
     }
 
     @Override
@@ -39,11 +50,7 @@ public class MainActivity extends AppCompatActivity implements UserGuessingFragm
         switch (item.getItemId()) {
             case R.id.switchMode:
 //                if mode is guessing change to thinking
-                if (gameModeGuessing) {
-                    gameModeGuessing = false;
-                } else {
-                    gameModeGuessing = true;
-                }
+                gameModeUserGuessing = !gameModeUserGuessing;
                 changeMode();
                 return true;
             default:
@@ -52,15 +59,13 @@ public class MainActivity extends AppCompatActivity implements UserGuessingFragm
     }
 
     private void changeMode () {
-        TextView gameModeTextView = findViewById(R.id.gameModeTextView);
-        if (gameModeGuessing) {
+        if (gameModeUserGuessing) {
+            gameModeTextView.setText(R.string.game_mode_guessing_textview);
+            initUserGuessFragment();
+        } else {
             gameModeTextView.setText(R.string.game_mode_thinking_textview);
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.frameLayoutMainAct, new NumberGuesserFragment()).commit();
-
-        } else {
-            gameModeTextView.setText(R.string.game_mode_guessing_textview);
-            initUserGuessFragment();
         }
     }
 
