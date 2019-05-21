@@ -40,7 +40,6 @@ public class NumberGuesserFragment extends Fragment {
     private ArrayList<Integer> lastGuess;
     private ArrayList<ArrayList<Integer>> wrongGuesses;
     private ArrayList<int[]> wrongGuessesFeedback;
-    private ArrayList<ArrayList<Integer>> discardedNumbers;
 //    todo que sume los feedbacks al index de los guesses para despues acceder al mismo index
 
     public interface OnGameFinishedListener {
@@ -59,7 +58,7 @@ public class NumberGuesserFragment extends Fragment {
 
 
         digitsInputLinearLayout = (LinearLayout) rootView.findViewById(R.id.digitsNumberLinearLayout);
-        numberGuessedLayout = rootView.findViewById(R.id.generatedNumberLinearLayout);
+        numberGuessedLayout = (LinearLayout) rootView.findViewById(R.id.generatedNumberLinearLayout);
         startBtn = (Button) rootView.findViewById(R.id.startBtn);
         userFeedbackBtn = (Button) rootView.findViewById(R.id.userFeedBackBtn);
 
@@ -69,8 +68,6 @@ public class NumberGuesserFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 if (gameStarted) {
-//                    todo: change button to restart
-//                    display some message, delete everything else?
                     Toast.makeText(context, "Woohoo!", Toast.LENGTH_SHORT).show();
 
                     onGameFinishedListener.numberGuesserGameEnded();
@@ -105,7 +102,6 @@ public class NumberGuesserFragment extends Fragment {
 
         wrongGuesses = new ArrayList<>();
         wrongGuessesFeedback = new ArrayList<>();
-        discardedNumbers = new ArrayList<>();
 
         return rootView;
     }
@@ -143,36 +139,28 @@ public class NumberGuesserFragment extends Fragment {
             }
 //            todo: si hay 3 matches habria que ir probando de a una columna y volviendo al numero anterior
 
-
-            Log.d(TAG, "Storing wrong guess: " + lastGuess);
             wrongGuesses.add(lastGuess);
             wrongGuessesFeedback.add(userFeedBack);
 
             ArrayList nextNumber = nextPossibleNumber(lastGuess);
-            Log.d(TAG, "last guess Number: " + lastGuess);
-            Log.d(TAG, "next pos number: " + nextNumber.toString());
-            int [] numbersComparison = compareNumbers(lastGuess, nextNumber);
-            Log.d(TAG, "numbers compared: " + Arrays.toString(numbersComparison));
 
-//            while next pos number tiene que tneer en cuenta los discarded numbers
-//            y while tambien tiene que tener en cuenta los wrongGuesses y feedback
-            while (!Arrays.equals(userFeedBack, numbersComparison) || !checkIfValidNumbersFromPools(nextNumber)) {
-                discardedNumbers.add(nextNumber);
+            for (int i = 0; i < wrongGuesses.size(); i++) {
+                ArrayList<Integer> wrongGuess = wrongGuesses.get(i);
+                int[] currentNumberFeedback = wrongGuessesFeedback.get(i);
+                int [] numbersComparison = compareTwoNumbers(wrongGuess, nextNumber);
 
-                nextNumber = nextPossibleNumber(nextNumber);
-                Log.d(TAG, "inside loop next number: " + nextNumber);
-                numbersComparison = compareNumbers(lastGuess, nextNumber);
-                Log.d(TAG, "comparison: " + Arrays.toString(numbersComparison));
-
-//                todo: no solo tiene que checkear que coincida con el numero anterior
-//                              sino con todo el feedback de todos los numbero anteriores
+                while (!Arrays.equals(currentNumberFeedback, numbersComparison) || !checkIfValidNumbersFromPools(nextNumber) ) {
+                    nextNumber = nextPossibleNumber(nextNumber);
+                    numbersComparison = compareTwoNumbers(wrongGuess, nextNumber);
+                }
             }
-//
+
             if (nextNumber == lastGuess){
                 Log.d(TAG, "no more numbers available");
                 Toast.makeText(context, "All numbers discarded", Toast.LENGTH_SHORT).show();
                 return null;
             }
+
             lastGuess = nextNumber;
             return lastGuess;
         }
@@ -185,7 +173,6 @@ public class NumberGuesserFragment extends Fragment {
             textView.setText(String.valueOf(guessedNumber.get(i)));
             textView.setTextSize(50);
             numberGuessedLayout.addView(textView);
-
         }
     }
 
@@ -198,7 +185,6 @@ public class NumberGuesserFragment extends Fragment {
             randomNumber.add(number);
         }
 
-        Log.d(TAG, "GENERATED RANDOM NUMBER: " + randomNumber.toString());
         lastGuess = randomNumber;
         return lastGuess;
     }
@@ -211,8 +197,6 @@ public class NumberGuesserFragment extends Fragment {
                 columnPool.remove(numsToErrase.get(i));
             }
         }
-
-        Log.d(TAG, "removed " + numsToErrase.toString() + " from EACH pool: " + columnsValues.toString());
     }
 
     private void removeNumbersFromAllPools(ArrayList<Integer> numsToErase) {
@@ -224,11 +208,9 @@ public class NumberGuesserFragment extends Fragment {
                 if (columnPool.contains(digit)) columnPool.remove(columnPool.indexOf(digit));
             }
         }
-
-        Log.d(TAG, "removed " + numsToErase + " from ALL pools: " + columnsValues.toString());
     }
 
-    private int[] compareNumbers (ArrayList<Integer> prevNum, ArrayList<Integer> newNum) {
+    private int[] compareTwoNumbers (ArrayList<Integer> prevNum, ArrayList<Integer> newNum) {
         int exactMatches = 0;
         int wrongPosition = 0;
         for (int i = 0; i < prevNum.size(); i++) {
