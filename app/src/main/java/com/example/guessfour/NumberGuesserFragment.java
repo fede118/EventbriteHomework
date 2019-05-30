@@ -23,24 +23,25 @@ import java.util.Random;
 public class NumberGuesserFragment extends Fragment {
     private static final String TAG = NumberGuesserFragment.class.getSimpleName();
 
+    private int NUMBER_TO_GUESS_LENGTH;
+
     private Context context;
     private LinearLayout numberGuessedLayout;
     private LinearLayout digitsInputLinearLayout;
-    private NumberPicker exactMatchNP ;
-    private NumberPicker wrongPosNP;
+    private NumberPicker exactMatchNumPicker;
+    private NumberPicker wrongPositionNumPicker;
     private Button startBtn;
     private Button userFeedbackBtn;
-    private NumberPicker numberPicker;
+    private NumberPicker numberLengthNumPicker;
+    private TextView numberGuessTextView;
 
     private boolean gameStarted = false;
-
-    private int NUMBER_TO_GUESS_LENGTH;
-    private HashMap<String, ArrayList<Integer>> columnsValues;
 
     private ArrayList<Integer> lastGuess;
     private ArrayList<ArrayList<Integer>> wrongGuesses;
     private ArrayList<int[]> wrongGuessesFeedback;
-//    todo que sume los feedbacks al index de los guesses para despues acceder al mismo index
+    private HashMap<String, ArrayList<Integer>> columnsValues;
+
 
     public interface OnGameFinishedListener {
         void numberGuesserGameEnded();
@@ -53,17 +54,24 @@ public class NumberGuesserFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         super.onCreateView(inflater, container, savedInstanceState);
         final View rootView = inflater.inflate(R.layout.fragment_number_guesser, container, false);
-
         context = getContext();
 
-
         digitsInputLinearLayout = (LinearLayout) rootView.findViewById(R.id.digitsNumberLinearLayout);
-        numberGuessedLayout = (LinearLayout) rootView.findViewById(R.id.generatedNumberLinearLayout);
+        numberGuessedLayout = (LinearLayout) rootView.findViewById(R.id.numberGuessedLinearLayout);
         startBtn = (Button) rootView.findViewById(R.id.startBtn);
         userFeedbackBtn = (Button) rootView.findViewById(R.id.userFeedBackBtn);
 
-        initializePreStart();
+        numberGuessTextView = new TextView(context);
+        numberGuessTextView.setTextSize(50);
 
+        numberLengthNumPicker = (NumberPicker) rootView.findViewById(R.id.numberLengthNumPicker);
+        numberLengthNumPicker.setMaxValue(4);
+        numberLengthNumPicker.setMinValue(2);
+
+        wrongGuesses = new ArrayList<>();
+        wrongGuessesFeedback = new ArrayList<>();
+
+        startBtn.setText(R.string.start_button);
         startBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -72,18 +80,30 @@ public class NumberGuesserFragment extends Fragment {
 
                     onGameFinishedListener.numberGuesserGameEnded();
                 } else {
-                    NUMBER_TO_GUESS_LENGTH = numberPicker.getValue();
+                    NUMBER_TO_GUESS_LENGTH = numberLengthNumPicker.getValue();
+
+                    numberGuessedLayout.removeAllViews();
+                    digitsInputLinearLayout.removeAllViews();
+                    exactMatchNumPicker = new NumberPicker(context);
+                    wrongPositionNumPicker = new NumberPicker(context);
+                    digitsInputLinearLayout.setOrientation(LinearLayout.HORIZONTAL);
+
+                    digitsInputLinearLayout.addView(createNumberPickerWithTitle(context,
+                            R.string.exact_match_textview, exactMatchNumPicker, NUMBER_TO_GUESS_LENGTH));
+                    digitsInputLinearLayout.addView(createNumberPickerWithTitle(context,
+                            R.string.wrong_position_textview, wrongPositionNumPicker, NUMBER_TO_GUESS_LENGTH));
+
+                    digitsInputLinearLayout.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
 
                     initializeColumnPools();
-                    initializeMatchInputs(context, digitsInputLinearLayout);
 
-                    ArrayList<Integer> guessedNumber = guess(null, null);
-                    displayGuessedNumber(guessedNumber);
+                    ArrayList<Integer> guessAttemptNumber = guess(null, null);
+                    numberGuessTextView.setText(arrayToStringFormatted(guessAttemptNumber));
+                    numberGuessedLayout.addView(numberGuessTextView);
 
-
-                    startBtn.setText(R.string.correct_number_button);
                     userFeedbackBtn.setVisibility(View.VISIBLE);
-                    gameStarted = !gameStarted;
+                    startBtn.setText(R.string.correct_number_button);
+                    gameStarted = true;
                 }
 
             }
@@ -92,16 +112,17 @@ public class NumberGuesserFragment extends Fragment {
         userFeedbackBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                int exactMatch = exactMatchNP.getValue();
-                int wrongPosition = wrongPosNP.getValue();
+                int exactMatch = exactMatchNumPicker.getValue();
+                int wrongPosition = wrongPositionNumPicker.getValue();
 
-                displayGuessedNumber(guess(exactMatch, wrongPosition));
-                Log.d(TAG, "NEW GUESS AFTER FEEDBACK => " + lastGuess);
+                if (exactMatch + wrongPosition > NUMBER_TO_GUESS_LENGTH) {
+                    Toast.makeText(context, "bien + regular no puede ser mas que la cantidad de digitos", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                numberGuessTextView.setText(arrayToStringFormatted(guess(exactMatch, wrongPosition)));
             }
         });
-
-        wrongGuesses = new ArrayList<>();
-        wrongGuessesFeedback = new ArrayList<>();
 
         return rootView;
     }
@@ -116,14 +137,47 @@ public class NumberGuesserFragment extends Fragment {
         }
     }
 
+    /*
+    crea un Hashmap donde cada digito (o columna) tiene un pozo (o pool) con los numeros del 0 al 9
+     */
+    private void initializeColumnPools () {
+        columnsValues = new HashMap<>();
+        for (int i = 0; i < NUMBER_TO_GUESS_LENGTH; i++) {
+            ArrayList<Integer> numbers = new ArrayList<>(Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
+            columnsValues.put("column" + i, numbers);
+        }
+    }
+
+    /*
+    GUESS: funcion core del fragment
+
+    si se ejecuta con ambos parametros nulos, es decir sin feedback
+    ejecuta createRandomNumberFromPool (ver mas abajo)
+
+    si hay feedback es decir sabemos cuantos numeros en posicion correcta y en posicion incorrecta
+    paso 1:
+        Finaliza el juego si numeros "bien" == digitos que tiene numero
+        y quita los numeros de los pozos de cada "columna"  (si no hay numeros "bien")
+        o de todos los pzoos (si tampoco hay numeros "regulares")
+
+    paso 2
+        Luego agrega el ultimo numero generado a la lista de numeros incorrectos y el feedback de ese numero
+        a la vez en la lista de feedbacks (ambos tiene el mismo index para accederlos facilmente)
+
+        se genera nextNumer ( 0000 -> 0001 ...) del ultimo numero intentado
+        y se compara con todos los numeros intentados anteriores y sus feedbacks hasta el proximo que
+        coincida con todos. Ademas el numero tiene que ser valido segun los pozos de numeros para cada
+        columna del numero (que se han actualizado en el paso 1)
+
+    failsafe:
+        se registra donde empezo el loop, si se vuelve a ese punto se hace break,
+        si el break es el en el ultimo numero de la lista de numeros intentados es que no se pudo
+        coincidir los feedbacks recibidos con el numero actual
+     */
     private ArrayList<Integer> guess (@Nullable Integer exactNum, @Nullable Integer wrongPosNum) {
         if (exactNum == null && wrongPosNum == null) {
             return createRandomNumberFromPool();
-        } else {
-//            prov
-            if (exactNum == null) exactNum = 0;
-            if (wrongPosNum == null) wrongPosNum = 0;
-
+        } else if (exactNum != null && wrongPosNum != null){
             int[] userFeedBack = new int[]{exactNum, wrongPosNum};
 
             if (exactNum == NUMBER_TO_GUESS_LENGTH) {
@@ -142,40 +196,41 @@ public class NumberGuesserFragment extends Fragment {
             wrongGuesses.add(lastGuess);
             wrongGuessesFeedback.add(userFeedBack);
 
-            ArrayList nextNumber = nextPossibleNumber(lastGuess);
+            ArrayList<Integer> nextNumber = nextPossibleNumber(lastGuess);
 
             for (int i = 0; i < wrongGuesses.size(); i++) {
                 ArrayList<Integer> wrongGuess = wrongGuesses.get(i);
                 int[] currentNumberFeedback = wrongGuessesFeedback.get(i);
                 int [] numbersComparison = compareTwoNumbers(wrongGuess, nextNumber);
 
+                ArrayList<Integer> loopStart = nextNumber;
+
                 while (!Arrays.equals(currentNumberFeedback, numbersComparison) || !checkIfValidNumbersFromPools(nextNumber) ) {
                     nextNumber = nextPossibleNumber(nextNumber);
-                    numbersComparison = compareTwoNumbers(wrongGuess, nextNumber);
-                }
-            }
 
-            if (nextNumber == lastGuess){
-                Log.d(TAG, "no more numbers available");
-                Toast.makeText(context, "All numbers discarded", Toast.LENGTH_SHORT).show();
-                return null;
+                    numbersComparison = compareTwoNumbers(wrongGuess, nextNumber);
+
+                    Log.d(TAG, nextNumber.toString());
+
+                    if (nextNumber.equals(loopStart)) {
+                        if (i == wrongGuesses.size() - 1) {
+                            Toast.makeText(context, "por favor empeza de nuevo, no se pudo determinar el numero", Toast.LENGTH_SHORT).show();
+                            onGameFinishedListener.numberGuesserGameEnded();
+                        }
+                        break;
+                    }
+                }
             }
 
             lastGuess = nextNumber;
             return lastGuess;
         }
+        return lastGuess;
     }
 
-    private void displayGuessedNumber (ArrayList<Integer> guessedNumber) {
-        numberGuessedLayout.removeAllViews();
-        for (int i = 0; i < guessedNumber.size(); i++) {
-            TextView textView = new TextView(context);
-            textView.setText(String.valueOf(guessedNumber.get(i)));
-            textView.setTextSize(50);
-            numberGuessedLayout.addView(textView);
-        }
-    }
-
+    /*
+    crea un numero al azar teniendo en cuenta los numeros disponibles en cada pozo
+     */
     private ArrayList<Integer> createRandomNumberFromPool () {
         ArrayList<Integer> randomNumber = new ArrayList<>();
         for (int i = 0; i < columnsValues.size(); i++) {
@@ -189,6 +244,12 @@ public class NumberGuesserFragment extends Fragment {
         return lastGuess;
     }
 
+    /*
+    quita los numeros solo de cada columna. Ej.:
+    si le ingresamos el numero 1234 va sacar el 1 del pozo de la primer columna o digito
+    el 2 de la segunda columna, el 3 de la tercera y el 4 de la cuarta.
+    (no necesariamente tienen que ser 4 digitos)
+     */
     private void removeNumbersFromEachPools (ArrayList<Integer> numsToErrase) {
         if (numsToErrase == null) return;
         for (int i = 0; i < numsToErrase.size(); i++) {
@@ -199,6 +260,11 @@ public class NumberGuesserFragment extends Fragment {
         }
     }
 
+    /*
+    saca todos los numeros de todos los pozos
+    Ej.: si le ingresamos el numero 1234 va a sacar los numeros 1, 2, 3 y 4 de todos los pozos
+    (no necesariamente tienen que ser 4 digitos)
+     */
     private void removeNumbersFromAllPools(ArrayList<Integer> numsToErase) {
         if (numsToErase == null) return;
 
@@ -210,22 +276,31 @@ public class NumberGuesserFragment extends Fragment {
         }
     }
 
+    /*
+    compara 2 numeros y dice cuantos numeros estan "bien" (exact match) y cuantos estan "regular"
+    (wrong Position)
+
+     */
     private int[] compareTwoNumbers (ArrayList<Integer> prevNum, ArrayList<Integer> newNum) {
         int exactMatches = 0;
         int wrongPosition = 0;
+
         for (int i = 0; i < prevNum.size(); i++) {
-            if (prevNum.get(i) == newNum.get(i)) {
-                exactMatches++;
-            } else if (prevNum.contains(newNum.get(i))) wrongPosition++;
+            if (prevNum.get(i).equals(newNum.get(i))) exactMatches++;
+            else if (prevNum.contains(newNum.get(i))) wrongPosition++;
         }
         return new int[] {exactMatches, wrongPosition};
     }
 
+    /*
+    funcion que devuelve el numero ingresado mas 1, sin aumentar la cantidad de digitos
+    es decir si se ingresa el numero 99 no va a devolver 100, sino que va a devolver 00 (vuelve a
+    empezar)
+    NOTA: se realiza una copia de la lista ya que las listas son mutables y no queremos modificar
+    la lista ingresada
+     */
     private ArrayList<Integer> nextPossibleNumber (ArrayList<Integer> number) {
-//        copiando porque las listas son mutables
-//        las recursive calls van a crear una nueva copia en cada "vuelta"? mmmmm
-        ArrayList<Integer> listCopy = new ArrayList<>();
-        listCopy.addAll(number);
+        ArrayList<Integer> listCopy = new ArrayList<>(number);
 
         if (!listCopy.isEmpty()) {
             int lastIndex = listCopy.size() - 1;
@@ -246,6 +321,10 @@ public class NumberGuesserFragment extends Fragment {
         return listCopy;
     }
 
+    /*
+    funcion que devuelve un booleano como resultado de checkear si cada digito se encuentra disponible
+    en su respectivo pozo
+     */
     private boolean checkIfValidNumbersFromPools (ArrayList<Integer> number) {
         int validNumbers = 0;
 
@@ -256,61 +335,37 @@ public class NumberGuesserFragment extends Fragment {
         return validNumbers == number.size();
     }
 
-    private void initializePreStart () {
-        numberGuessedLayout.removeAllViews();
-        digitsInputLinearLayout.removeAllViews();
+    /*
+    funcion que crea los NumberPickers con los titulos "bien" y "regular"
+     */
+    private LinearLayout createNumberPickerWithTitle(Context context, int titleStringId, NumberPicker numberPicker, int numberPickerMaxVal ) {
+        String idToString = getResources().getString(titleStringId, "");
 
-        exactMatchNP = new NumberPicker(context);
-        wrongPosNP= new NumberPicker(context);
+        LinearLayout verticalLinearLayout = new LinearLayout(context);
+        verticalLinearLayout.setOrientation(LinearLayout.VERTICAL);
 
-        TextView numPickerInfo = new TextView(context);
-        numPickerInfo.setText(R.string.number_picker_info_textview);
-        digitsInputLinearLayout.addView(numPickerInfo);
-        numberPicker = new NumberPicker(context);
-        numberPicker.setMinValue(2);
-        numberPicker.setMaxValue(4);
-        digitsInputLinearLayout.addView(numberPicker);
+        TextView titleTextView = new TextView(context);
+        titleTextView.setText(idToString);
+        titleTextView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        verticalLinearLayout.addView(titleTextView);
 
-        startBtn.setText(R.string.start_button);
-        userFeedbackBtn.setVisibility(View.INVISIBLE);
+        numberPicker.setMaxValue(numberPickerMaxVal);
+        verticalLinearLayout.addView(numberPicker);
+
+        return verticalLinearLayout;
     }
 
-    private void initializeColumnPools () {
-                columnsValues = new HashMap<>();
-        for (int i = 0; i < NUMBER_TO_GUESS_LENGTH; i++) {
-            ArrayList<Integer> numbers = new ArrayList<>(Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
-            columnsValues.put("column" + i, numbers);
+    /*
+    funcion que formatea una lista a una string
+
+    NOTA: Ej.: <arrayList>.toString() = "[1,2,3,4]" en vez de "1234"
+     */
+    private String arrayToStringFormatted(ArrayList number) {
+        StringBuilder res = new StringBuilder();
+        for (int i = 0; i < number.size(); i++) {
+            res.append(number.get(i));
         }
-    }
 
-    private void initializeMatchInputs (Context context, LinearLayout linearLayout) {
-        linearLayout.removeAllViews();
-        linearLayout.setOrientation(LinearLayout.HORIZONTAL);
-
-        //        todo: esto deberia ser una helper class y crear 2 instancias una para exactmatch y otra para wrong position
-
-        LinearLayout exactMatchLinearLayout = new LinearLayout(context);
-        exactMatchLinearLayout.setOrientation(LinearLayout.VERTICAL);
-        TextView exactMatchTextView = new TextView(context);
-        exactMatchTextView.setText(R.string.exact_match_textview);
-        exactMatchLinearLayout.removeAllViews();
-        exactMatchLinearLayout.addView(exactMatchTextView);
-
-
-        exactMatchNP.setMaxValue(NUMBER_TO_GUESS_LENGTH);
-        exactMatchLinearLayout.addView(exactMatchNP);
-
-        LinearLayout wrongPosLinearLayout = new LinearLayout(context);
-        wrongPosLinearLayout.setOrientation(LinearLayout.VERTICAL);
-        TextView wrongPosTextView = new TextView(context);
-        wrongPosTextView.setText(R.string.wrong_position_textview);
-        wrongPosLinearLayout.removeAllViews();
-        wrongPosLinearLayout.addView(wrongPosTextView);
-        wrongPosNP.setMaxValue(NUMBER_TO_GUESS_LENGTH);
-        wrongPosLinearLayout.addView(wrongPosNP);
-
-        linearLayout.addView(exactMatchLinearLayout);
-        linearLayout.addView(wrongPosLinearLayout);
-        linearLayout.setShowDividers(LinearLayout.SHOW_DIVIDER_MIDDLE);
+        return res.toString();
     }
 }

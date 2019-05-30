@@ -16,26 +16,31 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.Locale;
 import java.util.Random;
 
 public class UserGuessingFragment extends Fragment {
     private static final String TAG = UserGuessingFragment.class.getSimpleName();
 
+    /*
+    constante pensada para a futuro poder cambiar si se desea el modo en que se determina la
+    cantidad de digitos en juego
+    */
+    private static final int AMOUNT_OF_NUMBERS_IN_PLAY = 4;
+
     private ArrayList<Integer> numberSequenceToGuess;
-    private static int amountOfNumbersInPlay;
 
     private LinearLayout numPicksLinearLayout;
     private LinearLayout userGuessingResultLinearLayout;
-    private TextView gameModeTextView;
-    private Button guessOrSetNumberBtn;
+    private TextView exactMatchTextView;    // exactMatch = Numero Bien
+    private TextView wrongPositionTextView;  // wrongPosition = Numero Regular
+    private Button guessButton;
 
     private boolean gameFinished = false;
 
     OnBtnClickListerner onBtnClickListerner;
 
     public interface OnBtnClickListerner {
-        void UserGuessingCallback(boolean gameFinished);
+        void userGuessingGameFinished();
     }
 
     @Nullable
@@ -43,62 +48,56 @@ public class UserGuessingFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         super.onCreateView(inflater,container,savedInstanceState);
         final Context context = getContext();
-        Bundle bundle = getArguments();
 
         View rootView = inflater.inflate(R.layout.fragment_user_guessing, container,false);
 
         numPicksLinearLayout = (LinearLayout) rootView.findViewById(R.id.userGuessingNumPicksLinearLayout);
         userGuessingResultLinearLayout = (LinearLayout) rootView.findViewById(R.id.userGuessingResultLinearLayout);
-//        userGuessingResultLinearLayout.removeAllViews();
+        exactMatchTextView = new TextView(context);
+        exactMatchTextView.setTextSize(25);
+        wrongPositionTextView = new TextView(context);
+        wrongPositionTextView.setTextSize(25);
 
-        amountOfNumbersInPlay = bundle.getInt("amount");
+        guessButton = (Button) rootView.findViewById(R.id.guessButton);
 
-        for (int i = 0; i < amountOfNumbersInPlay; i++) {
-            NumberPicker numberPicker = new NumberPicker(context);
-            numberPicker.setMinValue(0);
-            numberPicker.setMaxValue(9);
-            numPicksLinearLayout.addView(numberPicker);
-        }
-
-        gameModeTextView = (TextView) rootView.findViewById(R.id.gameModeTextView);
-        guessOrSetNumberBtn = (Button) rootView.findViewById(R.id.guessOrSetNumberBtn);
+        setNumberPickers(context, numPicksLinearLayout, AMOUNT_OF_NUMBERS_IN_PLAY);
 
         numberSequenceToGuess = createRandomNumber();
         Log.d(TAG, String.format("NUMBER TO GUESS: %s", numberSequenceToGuess.toString()));
 
-        guessOrSetNumberBtn.setOnClickListener(new View.OnClickListener() {
+        /*
+        cuando tocamos el boton de adivinar si el juego no ha terminado checkeamos cuantos numeros
+        bien y cuantos regulares hay en el numero del usuario y lo mostramos en los TextViews
+         */
+        guessButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Button btn = (Button) v;
-
                 if (!gameFinished) {
                     userGuessingResultLinearLayout.removeAllViews();
 
-                    TextView exactMatchTextView = new TextView(context);
-                    TextView notExactMatchTextView = new TextView(context);
-
                     int exactMatch = checkSuccess()[0];
-                    int notExactMatch = checkSuccess()[1];
+                    int wrongPosition = checkSuccess()[1];
 
-                    notExactMatchTextView.setText(String.format(Locale.getDefault(), "Right number wrong position: %d", notExactMatch));
-                    exactMatchTextView.setText(String.format(Locale.getDefault(), "Exact Matchs: %d", exactMatch));
-                    userGuessingResultLinearLayout.addView(notExactMatchTextView);
+                    exactMatchTextView.setText(getString(R.string.exact_match_textview, String.valueOf(exactMatch)));
+                    wrongPositionTextView.setText(getString(R.string.wrong_position_textview, String.valueOf(wrongPosition)));
+
+                    userGuessingResultLinearLayout.addView(wrongPositionTextView);
                     userGuessingResultLinearLayout.addView(exactMatchTextView);
 
-                    if (exactMatch == amountOfNumbersInPlay) {
-                        Toast.makeText(context, "You WON!!", Toast.LENGTH_SHORT).show();
+                    if (exactMatch == AMOUNT_OF_NUMBERS_IN_PLAY) {
+                        Toast.makeText(context, "Ganaste!!", Toast.LENGTH_SHORT).show();
 
                         userGuessingResultLinearLayout.removeAllViews();
 
-                        btn.setText(R.string.restart_button);
+                        guessButton.setText(R.string.restart_button);
                         gameFinished = true;
                     }
                 } else {
 //                        game finished need to restart
-                    onBtnClickListerner.UserGuessingCallback(true);
+                    onBtnClickListerner.userGuessingGameFinished();
                 }
-                }
-            });
+            }
+        });
 
         return rootView;
     }
@@ -113,6 +112,9 @@ public class UserGuessingFragment extends Fragment {
         }
     }
 
+    /*
+    funcion que devuelve el numero ingresado en los NumberPickers por el usuario
+     */
     ArrayList<Integer> getNumberSequenceInput () {
         ArrayList<Integer> res = new ArrayList<>();
         for (int i = 0; i < numPicksLinearLayout.getChildCount(); i++){
@@ -124,13 +126,18 @@ public class UserGuessingFragment extends Fragment {
         return res;
     }
 
+    /*
+    funcion que devuelve un int Array con la cantidad de numeros bien (ExactMatch) en index 0
+    y la cantidad de numeros regulares en index [1]
+
+     */
     int[] checkSuccess () {
         int[] res = new int[2];
         ArrayList<Integer> userInput = getNumberSequenceInput();
 
         Log.d(TAG, numberSequenceToGuess.toString());
         if (userInput.equals(numberSequenceToGuess)) {
-            res[0] = amountOfNumbersInPlay;
+            res[0] = AMOUNT_OF_NUMBERS_IN_PLAY;
             return res;
         } else {
             for (int i = 0; i < numberSequenceToGuess.size(); i++) {
@@ -144,15 +151,32 @@ public class UserGuessingFragment extends Fragment {
         return res;
     }
 
+    /*
+    funcion que devuelve un ArrayList de integers al azar del 0 a 9 y crea la cantidad de digitos
+    segun la constante AMOUNT_OF_NUMBERS_IN_PLAY
+     */
     private ArrayList<Integer> createRandomNumber() {
         Random random = new Random();
         ArrayList<Integer> result = new ArrayList<Integer>();
 
-        for (int i = 0; i < amountOfNumbersInPlay;i++) {
+        for (int i = 0; i < AMOUNT_OF_NUMBERS_IN_PLAY;i++) {
             result.add(random.nextInt(9));
         }
 
         return result;
     }
 
+    /*
+    funcion que crea NumberPickers en un linearLayout determinado y la cantidad que se necesiten
+    en este caso se usa la constante AMOUNT_OF_NUMBERS_IN_PLAY pero permite flexibilidad en caso
+    de que mas adelante se quiera agregar funcionalidad que aumente la cantidad de digitos a adivinar
+     */
+    private void setNumberPickers(Context context, LinearLayout linearLayout,  int amount) {
+        for (int i = 0; i < amount; i++) {
+            NumberPicker numberPicker = new NumberPicker(context);
+            numberPicker.setMinValue(0);
+            numberPicker.setMaxValue(9);
+            linearLayout.addView(numberPicker);
+        }
+    }
 }
